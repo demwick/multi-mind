@@ -1,8 +1,5 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import type { AgentResult } from '../types/index.js';
-
-const execFileAsync = promisify(execFile);
 
 export async function synthesize(
   brief: string,
@@ -34,15 +31,37 @@ Kurallar:
 - Türkçe yaz
 - Sadece özet metnini yaz, başlık veya markdown formatı ekleme`;
 
-  const args = ['-p', prompt, '--output-format', 'text'];
+  const args = ['-p', '-', '--output-format', 'text'];
   if (options?.model) {
     args.push('--model', options.model);
   }
 
-  const { stdout } = await execFileAsync('claude', args, {
-    timeout: 120_000,
-    maxBuffer: 5 * 1024 * 1024,
-    env: { ...process.env },
+  const stdout = await new Promise<string>((resolve, reject) => {
+    const child = spawn('claude', args, {
+      timeout: 120_000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let out = '';
+    let err = '';
+
+    child.stdout.on('data', (data: Buffer) => { out += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { err += data.toString(); });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`claude CLI exited with code ${code}: ${err.slice(0, 500)}`));
+        return;
+      }
+      resolve(out);
+    });
+
+    child.on('error', (e) => {
+      reject(new Error(`claude CLI error: ${e.message}`));
+    });
+
+    child.stdin.write(prompt);
+    child.stdin.end();
   });
 
   return stdout.trim();

@@ -1,4 +1,4 @@
-import { execFile } from 'child_process';
+import { spawn } from 'child_process';
 import { parse as parseYaml } from 'yaml';
 import type { AgentDefinition, AgentResult } from '../types/index.js';
 
@@ -69,19 +69,37 @@ export async function runAgent(
   });
 
   const model = options?.model ?? agent.model;
-  const args: string[] = ['-p', prompt, '--output-format', 'text'];
+  const args: string[] = ['-p', '-', '--output-format', 'text'];
   if (model) {
     args.push('--model', model);
   }
 
   const raw = await new Promise<string>((resolve, reject) => {
-    execFile('claude', args, { timeout: 300_000 }, (err, stdout, stderr) => {
-      if (err) {
-        reject(new Error(`claude CLI error: ${err.message}\n${stderr}`));
+    const child = spawn('claude', args, {
+      timeout: 300_000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`claude CLI exited with code ${code}: ${stderr.slice(0, 500)}`));
         return;
       }
       resolve(stdout);
     });
+
+    child.on('error', (err) => {
+      reject(new Error(`claude CLI error: ${err.message}`));
+    });
+
+    child.stdin.write(prompt);
+    child.stdin.end();
   });
 
   const { text, structured } = parseClaudeOutput(raw);
