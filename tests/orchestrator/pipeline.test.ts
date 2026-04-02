@@ -190,7 +190,7 @@ describe('runPipeline', () => {
     expect(archResult!.output).toBe('Mock output from arch');
 
     // CTO should have an error result
-    expect(ctoResult!.output).toContain('HATA:');
+    expect(ctoResult!.output).toContain('ERROR:');
     expect(ctoResult!.output).toContain('CTO timed out');
     expect(ctoResult!.structured).toBeNull();
   });

@@ -15,7 +15,7 @@ describe('buildPrompt', () => {
     expect(result).toContain('Analyze this market opportunity.');
     expect(result).toContain('researcher');
     expect(result).toContain('Market is growing at 15% YoY.');
-    expect(result).toContain('Onceki Ajan Ciktilari');
+    expect(result).toContain('Previous Agent Outputs');
     expect(result).toContain('Brief');
     expect(result).toContain('yaml');
   });
@@ -29,7 +29,7 @@ describe('buildPrompt', () => {
 
     expect(result).toContain('You are a product manager.');
     expect(result).toContain('Define the MVP scope.');
-    expect(result).not.toContain('Onceki Ajan Ciktilari');
+    expect(result).not.toContain('Previous Agent Outputs');
     expect(result).toContain('Brief');
     expect(result).toContain('yaml');
   });
@@ -42,7 +42,7 @@ describe('buildPrompt', () => {
       feedback: 'Please be more concise.',
     });
 
-    expect(result).toContain('Geri Bildirim');
+    expect(result).toContain('Feedback');
     expect(result).toContain('Please be more concise.');
   });
 
@@ -53,7 +53,7 @@ describe('buildPrompt', () => {
       previousOutputs: [],
     });
 
-    expect(result).not.toContain('Geri Bildirim');
+    expect(result).not.toContain('Feedback');
   });
 });
 

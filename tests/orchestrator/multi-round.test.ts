@@ -144,10 +144,10 @@ describe('runMultiRound', () => {
 
     // Round 2 call (index 1)
     const round2AgentDef = mockRunAgent.mock.calls[1][0];
-    expect(round2AgentDef.system_prompt).toContain('Tur 2 - Cok Disiplinli Inceleme');
-    expect(round2AgentDef.system_prompt).toContain('Uzlasma Noktalari');
-    expect(round2AgentDef.system_prompt).toContain('Itirazlarim');
-    expect(round2AgentDef.system_prompt).toContain('Revize Edilen Onerilerim');
+    expect(round2AgentDef.system_prompt).toContain('Round 2 — Cross-Disciplinary Review');
+    expect(round2AgentDef.system_prompt).toContain('Consensus Points');
+    expect(round2AgentDef.system_prompt).toContain('My Objections');
+    expect(round2AgentDef.system_prompt).toContain('Revised Recommendations');
     // Original system_prompt should still be there
     expect(round2AgentDef.system_prompt).toContain('You are a PM.');
   });

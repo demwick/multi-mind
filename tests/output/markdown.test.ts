@@ -31,7 +31,7 @@ const mockResult: PipelineResult = {
 describe('generateSummary', () => {
   it('contains the title', () => {
     const summary = generateSummary(mockResult);
-    expect(summary).toContain('# multi-mind Analiz Raporu');
+    expect(summary).toContain('# multi-mind Analysis Report');
   });
 
   it('contains the brief', () => {
