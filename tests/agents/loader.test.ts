@@ -99,6 +99,71 @@ describe('loadAgents', () => {
     const agents = await loadAgents(tmpDir);
     expect(agents).toHaveLength(1);
   });
+
+  it('loads system_prompt from external file when system_prompt_file is set', async () => {
+    const promptsDir = join(tmpDir, 'prompts');
+    mkdirSync(promptsDir);
+    writeFileSync(join(promptsDir, 'my-prompt.md'), 'You are an external agent.', 'utf-8');
+    const yaml = [
+      'name: ext-agent',
+      'display_name: "Ext Agent"',
+      'description: "test"',
+      'phase: 1',
+      'depends_on: []',
+      'input_from: []',
+      'system_prompt_file: prompts/my-prompt.md',
+    ].join('\n');
+    writeYaml(tmpDir, 'ext-agent.yaml', yaml);
+    const agents = await loadAgents(tmpDir);
+    expect(agents).toHaveLength(1);
+    expect(agents[0].system_prompt).toBe('You are an external agent.');
+  });
+
+  it('system_prompt_file overrides inline system_prompt', async () => {
+    const promptsDir = join(tmpDir, 'prompts');
+    mkdirSync(promptsDir);
+    writeFileSync(join(promptsDir, 'override.md'), 'External prompt content.', 'utf-8');
+    const yaml = [
+      'name: override-agent',
+      'display_name: "Override Agent"',
+      'description: "test"',
+      'phase: 1',
+      'depends_on: []',
+      'input_from: []',
+      'system_prompt: "Inline prompt."',
+      'system_prompt_file: prompts/override.md',
+    ].join('\n');
+    writeYaml(tmpDir, 'override-agent.yaml', yaml);
+    const agents = await loadAgents(tmpDir);
+    expect(agents[0].system_prompt).toBe('External prompt content.');
+  });
+
+  it('throws when system_prompt_file references a missing file', async () => {
+    const yaml = [
+      'name: missing-prompt-agent',
+      'display_name: "Missing"',
+      'description: "test"',
+      'phase: 1',
+      'depends_on: []',
+      'input_from: []',
+      'system_prompt_file: prompts/does-not-exist.md',
+    ].join('\n');
+    writeYaml(tmpDir, 'missing-agent.yaml', yaml);
+    await expect(loadAgents(tmpDir)).rejects.toThrow('System prompt file not found');
+  });
+
+  it('throws when agent has neither system_prompt nor system_prompt_file', async () => {
+    const yaml = [
+      'name: no-prompt-agent',
+      'display_name: "No Prompt"',
+      'description: "test"',
+      'phase: 1',
+      'depends_on: []',
+      'input_from: []',
+    ].join('\n');
+    writeYaml(tmpDir, 'no-prompt-agent.yaml', yaml);
+    await expect(loadAgents(tmpDir)).rejects.toThrow('has no system_prompt or system_prompt_file');
+  });
 });
 
 describe('validateDag', () => {

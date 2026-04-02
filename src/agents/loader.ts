@@ -1,6 +1,6 @@
 import { parse } from 'yaml';
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { join, extname } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { join, extname, dirname, resolve } from 'path';
 import type { AgentDefinition } from '../types/index.js';
 
 function collectYamlFiles(dir: string): string[] {
@@ -33,6 +33,17 @@ export async function loadAgents(agentsDir: string): Promise<AgentDefinition[]> 
   for (const filePath of yamlFiles) {
     const content = readFileSync(filePath, 'utf-8');
     const parsed = parse(content) as AgentDefinition;
+
+    if (parsed.system_prompt_file) {
+      const resolvedPath = resolve(dirname(filePath), parsed.system_prompt_file);
+      if (!existsSync(resolvedPath)) {
+        throw new Error(`System prompt file not found: ${resolvedPath} (agent: ${parsed.name})`);
+      }
+      parsed.system_prompt = readFileSync(resolvedPath, 'utf-8');
+    } else if (!parsed.system_prompt) {
+      throw new Error(`Agent "${parsed.name}" has no system_prompt or system_prompt_file`);
+    }
+
     agents.push(parsed);
   }
 
