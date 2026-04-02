@@ -43,8 +43,11 @@ npx multi-mind new "E-commerce platform with Next.js, multi-tenant, Turkish mark
 | Product Manager | 1 | Requirements, user stories, MVP scope |
 | CTO / Tech Lead | 2 | Tech stack, feasibility, cost analysis |
 | Software Architect | 3 | System architecture, modules, data flow |
+| DevOps Engineer | 4 | Infrastructure, CI/CD, deployment strategy |
+| QA Engineer | 4 | Test strategy, quality gates, edge cases |
+| Security Analyst | 4 | Threat modeling, security requirements |
 
-Agents run in dependency order: PM -> CTO -> Architect. Each agent receives the output of its predecessors.
+Agents run in dependency order: PM → CTO → Architect → (DevOps, QA, Security in parallel). Each agent receives the output of its predecessors.
 
 ## Custom Agents
 
@@ -104,6 +107,39 @@ npm test            # Run tests
 npm run dev -- new "test brief"  # Run in dev mode
 npm run build       # Build for distribution
 ```
+
+## Configuration
+
+Create a `.multimindrc.yaml` file in your project root (or any parent directory up to `$HOME`) to set defaults:
+
+```yaml
+model: claude-opus-4-5      # Claude model for all agents
+output_dir: reports         # Output directory (default: output/)
+agents_dir: my-agents       # Custom agents directory
+agents:                     # Restrict which agents run
+  - product-manager
+  - cto
+  - architect
+```
+
+CLI flags always take precedence over the config file. The loader searches from the current directory upward, so a single `~/.multimindrc.yaml` applies globally.
+
+## Multi-Round Analysis
+
+Use `--rounds` to have agents review and challenge each other's findings:
+
+```bash
+multi-mind new "My project brief" --rounds 3
+```
+
+- **Round 1:** Each agent runs the normal pipeline in phase order.
+- **Rounds 2+:** Every agent receives all previous-round outputs and is instructed to identify disagreements, revise its own recommendations, and note consensus points.
+
+Each agent's final output in the last round includes sections for "Consensus Points", "Objections", and "Revised Recommendations". More rounds produce more refined, cross-validated analysis at the cost of additional Claude API calls.
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, development workflow, and guidelines for adding new agents or commands.
 
 ## License
 
