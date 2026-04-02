@@ -26,6 +26,7 @@ export interface PipelineResult {
   agents: AgentResult[];
   failedAgents: string[];
   totalDurationMs: number;
+  rounds?: AgentResult[][];
 }
 
 export interface RunMeta {

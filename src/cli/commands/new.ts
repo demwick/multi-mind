@@ -1,8 +1,10 @@
 import { Command } from 'commander';
 import { join, resolve } from 'path';
 import ora from 'ora';
+import type { AgentDefinition, AgentResult } from '../../types/index.js';
 import { loadAgents, validateDag } from '../../agents/loader.js';
 import { runPipeline } from '../../orchestrator/pipeline.js';
+import { runMultiRound } from '../../orchestrator/multi-round.js';
 import { parseBrief } from '../../context/brief-parser.js';
 import { writeOutput } from '../../output/writer.js';
 import { generateSummary } from '../../output/markdown.js';
@@ -24,7 +26,8 @@ export function makeNewCommand(): Command {
       'Comma-separated list of agent names to use',
       (val: string) => val.split(',').map((s) => s.trim()),
     )
-    .action(async (brief: string | undefined, options: { verbose: boolean; outputDir?: string; model?: string; agents?: string[] }) => {
+    .option('-r, --rounds <number>', 'Number of analysis rounds (agents review each other)', '1')
+    .action(async (brief: string | undefined, options: { verbose: boolean; outputDir?: string; model?: string; agents?: string[]; rounds: string }) => {
       if (!brief) {
         brief = await collectBrief();
       }
@@ -61,23 +64,45 @@ export function makeNewCommand(): Command {
         const parsed = parseBrief(brief, outputDir);
         spinner.succeed(`Agents loaded (${agents.length}). Output: ${parsed.outputDir}`);
 
-        const result = await runPipeline(agents, brief, {
-          model: merged.model,
-          filterAgents: merged.agents,
-          verbose: options.verbose,
-          callbacks: {
-            onAgentStart: (agent) => {
-              spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
-            },
-            onAgentComplete: (result) => {
-              spinner.succeed(`Done: ${result.displayName} (${result.durationMs}ms)`);
-            },
-            onAgentError: (agent, error) => {
-              spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
-            },
-            onVerbose: options.verbose ? (msg) => console.log(`  [DEBUG] ${msg}`) : undefined,
+        const numRounds = parseInt(options.rounds, 10);
+        const sharedCallbacks = {
+          onAgentStart: (agent: AgentDefinition) => {
+            spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
           },
-        });
+          onAgentComplete: (r: AgentResult) => {
+            spinner.succeed(`Done: ${r.displayName} (${r.durationMs}ms)`);
+          },
+          onAgentError: (agent: AgentDefinition, error: Error) => {
+            spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
+          },
+          onVerbose: options.verbose ? (msg: string) => console.log(`  [DEBUG] ${msg}`) : undefined,
+        };
+
+        let result;
+        if (numRounds > 1) {
+          result = await runMultiRound(agents, brief, {
+            rounds: numRounds,
+            model: merged.model,
+            filterAgents: merged.agents,
+            verbose: options.verbose,
+            callbacks: {
+              ...sharedCallbacks,
+              onRoundStart: (round, total) => {
+                spinner.start(`Tur ${round}/${total} basliyor...`);
+              },
+              onRoundComplete: (round, roundResults) => {
+                spinner.succeed(`Tur ${round} tamamlandi (${roundResults.length} ajan)`);
+              },
+            },
+          });
+        } else {
+          result = await runPipeline(agents, brief, {
+            model: merged.model,
+            filterAgents: merged.agents,
+            verbose: options.verbose,
+            callbacks: sharedCallbacks,
+          });
+        }
 
         spinner.start('Yönetici özeti sentezleniyor...');
         let executiveSummary: string | undefined;

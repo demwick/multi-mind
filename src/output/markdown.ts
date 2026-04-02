@@ -3,6 +3,8 @@ import type { AgentResult, PipelineResult } from '../types/index.js';
 export function generateSummary(result: PipelineResult, executiveSummary?: string): string {
   const date = new Date().toISOString().split('T')[0];
   const durationSec = (result.totalDurationMs / 1000).toFixed(2);
+  const numRounds = result.rounds ? result.rounds.length : 1;
+  const isMultiRound = numRounds > 1;
 
   const sections = result.agents.map((agent) => {
     const isFailed = agent.structured === null && agent.output.startsWith('HATA:');
@@ -10,7 +12,10 @@ export function generateSummary(result: PipelineResult, executiveSummary?: strin
       const errorDetail = agent.output.replace(/^HATA:\s*/, '');
       return `## ${agent.displayName} ⚠️ HATA\n\n> Bu ajan çalıştırılırken hata oluştu: ${errorDetail}`;
     }
-    return `## ${agent.displayName}\n\n${agent.output}`;
+    const heading = isMultiRound
+      ? `## ${agent.displayName} (Revize Edilmis)`
+      : `## ${agent.displayName}`;
+    return `${heading}\n\n${agent.output}`;
   });
 
   const parts = [
@@ -19,10 +24,13 @@ export function generateSummary(result: PipelineResult, executiveSummary?: strin
     `**Tarih:** ${date}`,
     `**Brief:** ${result.brief}`,
     `**Toplam Süre:** ${durationSec}s`,
-    ``,
-    `---`,
-    ``,
   ];
+
+  if (isMultiRound) {
+    parts.push(`**Analiz Turlari:** ${numRounds}`);
+  }
+
+  parts.push(``, `---`, ``);
 
   if (executiveSummary) {
     parts.push(`## Yönetici Özeti`, ``, executiveSummary, ``, `---`, ``);
