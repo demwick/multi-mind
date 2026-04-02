@@ -1,0 +1,104 @@
+import { Command } from 'commander';
+import { join, resolve } from 'path';
+import ora from 'ora';
+import { loadAgents, validateDag } from '../../agents/loader.js';
+import { runPipeline } from '../../orchestrator/pipeline.js';
+import { parseBrief } from '../../context/brief-parser.js';
+import { loadProjectContext, projectContextToBrief } from '../../context/project-loader.js';
+import { writeOutput } from '../../output/writer.js';
+import { generateSummary } from '../../output/markdown.js';
+
+export function makeAnalyzeCommand(): Command {
+  const cmd = new Command('analyze');
+  cmd
+    .description('Analyze a project directory with the multi-agent pipeline')
+    .argument('<path>', 'Path to the project to analyze')
+    .option('-v, --verbose', 'Verbose output', false)
+    .option('-o, --output-dir <dir>', 'Output base directory', 'output')
+    .option('-m, --model <model>', 'Claude model to use')
+    .option(
+      '-a, --agents <agents>',
+      'Comma-separated list of agent names to use',
+      (val: string) => val.split(',').map((s) => s.trim()),
+    )
+    .action(
+      async (
+        projectPath: string,
+        options: { verbose: boolean; outputDir: string; model?: string; agents?: string[] },
+      ) => {
+        const spinner = ora('Loading project context...').start();
+
+        try {
+          const absolutePath = resolve(projectPath);
+          const ctx = loadProjectContext(absolutePath);
+
+          spinner.succeed(
+            `Project loaded: ${ctx.techStack.join(', ')} | ${ctx.fileCount} files`,
+          );
+
+          const brief = projectContextToBrief(ctx);
+
+          if (options.verbose) {
+            console.log('\n--- Brief ---');
+            console.log(brief);
+            console.log('--- End Brief ---\n');
+          }
+
+          spinner.start('Loading agents...');
+          const agentsDir = join(process.cwd(), 'agents');
+          const agents = await loadAgents(agentsDir);
+
+          if (agents.length === 0) {
+            spinner.fail('No agents found in ./agents/');
+            process.exit(1);
+          }
+
+          const validation = validateDag(agents);
+          if (!validation.valid) {
+            spinner.fail('DAG validation failed:');
+            for (const err of validation.errors) {
+              console.error(`  - ${err}`);
+            }
+            process.exit(1);
+          }
+
+          spinner.succeed(`Agents loaded (${agents.length})`);
+
+          const result = await runPipeline(agents, brief, {
+            model: options.model,
+            filterAgents: options.agents,
+            callbacks: {
+              onAgentStart: (agent) => {
+                spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
+              },
+              onAgentComplete: (result) => {
+                spinner.succeed(`Done: ${result.displayName} (${result.durationMs}ms)`);
+              },
+              onAgentError: (agent, error) => {
+                spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
+              },
+            },
+          });
+
+          const parsed = parseBrief(brief, options.outputDir);
+          spinner.start('Writing output...');
+          writeOutput(result, parsed.outputDir);
+          spinner.succeed(`Output written to ${parsed.outputDir}`);
+
+          if (options.verbose) {
+            console.log('\n' + generateSummary(result));
+          } else {
+            const totalSec = (result.totalDurationMs / 1000).toFixed(2);
+            console.log(
+              `\nCompleted in ${totalSec}s. Agents run: ${result.agents.map((a) => a.displayName).join(', ')}`,
+            );
+          }
+        } catch (err) {
+          spinner.fail(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+          process.exit(1);
+        }
+      },
+    );
+
+  return cmd;
+}
