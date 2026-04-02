@@ -5,6 +5,11 @@ export function generateSummary(result: PipelineResult, executiveSummary?: strin
   const durationSec = (result.totalDurationMs / 1000).toFixed(2);
 
   const sections = result.agents.map((agent) => {
+    const isFailed = agent.structured === null && agent.output.startsWith('HATA:');
+    if (isFailed) {
+      const errorDetail = agent.output.replace(/^HATA:\s*/, '');
+      return `## ${agent.displayName} ⚠️ HATA\n\n> Bu ajan çalıştırılırken hata oluştu: ${errorDetail}`;
+    }
     return `## ${agent.displayName}\n\n${agent.output}`;
   });
 

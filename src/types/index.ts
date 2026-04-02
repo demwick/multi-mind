@@ -24,6 +24,7 @@ export interface PipelineResult {
   success: boolean;
   brief: string;
   agents: AgentResult[];
+  failedAgents: string[];
   totalDurationMs: number;
 }
 

@@ -156,4 +156,82 @@ describe('runPipeline', () => {
 
     expect(mockRunAgent).toHaveBeenCalledWith(pm, 'Test brief', [], { model: 'claude-opus-4' });
   });
+
+  it('continues when one agent fails, returns partial results', async () => {
+    mockRunAgent.mockImplementation(async (agent: AgentDefinition) => {
+      if (agent.name === 'cto') {
+        throw new Error('CTO timed out');
+      }
+      return {
+        agentName: agent.name,
+        displayName: agent.display_name,
+        output: `Mock output from ${agent.name}`,
+        structured: { mock: true },
+        durationMs: 100,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    const result = await runPipeline([pm, cto, arch], 'Test brief');
+
+    // All three agents should still be in result.agents
+    expect(result.agents).toHaveLength(3);
+
+    const pmResult = result.agents.find((a) => a.agentName === 'pm');
+    const ctoResult = result.agents.find((a) => a.agentName === 'cto');
+    const archResult = result.agents.find((a) => a.agentName === 'arch');
+
+    expect(pmResult).toBeDefined();
+    expect(ctoResult).toBeDefined();
+    expect(archResult).toBeDefined();
+
+    // PM and Arch should have real output
+    expect(pmResult!.output).toBe('Mock output from pm');
+    expect(archResult!.output).toBe('Mock output from arch');
+
+    // CTO should have an error result
+    expect(ctoResult!.output).toContain('HATA:');
+    expect(ctoResult!.output).toContain('CTO timed out');
+    expect(ctoResult!.structured).toBeNull();
+  });
+
+  it('marks pipeline as not successful when agent fails', async () => {
+    mockRunAgent.mockImplementation(async (agent: AgentDefinition) => {
+      if (agent.name === 'cto') {
+        throw new Error('CTO timed out');
+      }
+      return {
+        agentName: agent.name,
+        displayName: agent.display_name,
+        output: `Mock output from ${agent.name}`,
+        structured: { mock: true },
+        durationMs: 100,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    const result = await runPipeline([pm, cto, arch], 'Test brief');
+
+    expect(result.success).toBe(false);
+  });
+
+  it('includes failedAgents list', async () => {
+    mockRunAgent.mockImplementation(async (agent: AgentDefinition) => {
+      if (agent.name === 'cto') {
+        throw new Error('CTO timed out');
+      }
+      return {
+        agentName: agent.name,
+        displayName: agent.display_name,
+        output: `Mock output from ${agent.name}`,
+        structured: { mock: true },
+        durationMs: 100,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    const result = await runPipeline([pm, cto, arch], 'Test brief');
+
+    expect(result.failedAgents).toEqual(['cto']);
+  });
 });

@@ -86,6 +86,11 @@ export function makeNewCommand(): Command {
         writeOutput(result, parsed.outputDir, executiveSummary);
         spinner.succeed(`Output written to ${parsed.outputDir}`);
 
+        if (result.failedAgents.length > 0) {
+          console.warn(`\n⚠️  Bazı ajanlar başarısız oldu: ${result.failedAgents.join(', ')}`);
+          console.warn(`    Rapor kısmi sonuçlarla oluşturuldu.`);
+        }
+
         if (options.verbose) {
           console.log('\n' + generateSummary(result));
         } else {
