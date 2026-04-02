@@ -66,15 +66,44 @@ export function makeNewCommand(): Command {
         spinner.succeed(`Agents loaded (${agents.length}). Output: ${parsed.outputDir}`);
 
         const numRounds = parseInt(options.rounds, 10);
+
+        // Track active agents to support multi-line progress display
+        const activeAgents = new Set<string>();
+        const multiProgress = new MultiProgress();
+
         const sharedCallbacks = {
           onAgentStart: (agent: AgentDefinition) => {
-            spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
+            activeAgents.add(agent.name);
+            if (activeAgents.size > 1) {
+              // Multiple agents running - use multi-line progress
+              multiProgress.start(agent.name, `${agent.display_name} çalışıyor...`);
+            } else {
+              // Single agent - use ora spinner
+              spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
+            }
           },
           onAgentComplete: (r: AgentResult) => {
-            spinner.succeed(`Done: ${r.displayName} (${r.durationMs}ms)`);
+            activeAgents.delete(r.agentName);
+            const durationSec = (r.durationMs / 1000).toFixed(1);
+            if (activeAgents.size >= 1) {
+              // Still other agents running - show in multi-progress
+              multiProgress.succeed(r.agentName, `${r.displayName} tamamlandı (${durationSec}s)`);
+            } else {
+              // Last agent done - use ora spinner
+              spinner.succeed(`Done: ${r.displayName} (${r.durationMs}ms)`);
+              multiProgress.stop();
+            }
           },
           onAgentError: (agent: AgentDefinition, error: Error) => {
-            spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
+            activeAgents.delete(agent.name);
+            if (activeAgents.size >= 1) {
+              // Still other agents running - show in multi-progress
+              multiProgress.fail(agent.name, `${agent.display_name} hata: ${error.message}`);
+            } else {
+              // Last agent failed - use ora spinner
+              spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
+              multiProgress.stop();
+            }
           },
           onVerbose: options.verbose ? (msg: string) => console.log(`  [DEBUG] ${msg}`) : undefined,
           onValidationWarning: (agent: AgentDefinition, errors: string[]) => {

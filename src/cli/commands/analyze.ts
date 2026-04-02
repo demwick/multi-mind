@@ -10,6 +10,8 @@ import { generateSummary } from '../../output/markdown.js';
 import { synthesize } from '../../orchestrator/synthesizer.js';
 import { loadConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
+import type { AgentDefinition, AgentResult } from '../../types/index.js';
+import { MultiProgress } from '../progress.js';
 
 export function makeAnalyzeCommand(): Command {
   const cmd = new Command('analyze');
@@ -78,19 +80,47 @@ export function makeAnalyzeCommand(): Command {
 
           spinner.succeed(`Agents loaded (${agents.length})`);
 
+          // Track active agents to support multi-line progress display
+          const activeAgents = new Set<string>();
+          const multiProgress = new MultiProgress();
+
           const result = await runPipeline(agents, brief, {
             model: merged.model,
             filterAgents: merged.agents,
             verbose: options.verbose,
             callbacks: {
-              onAgentStart: (agent) => {
-                spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
+              onAgentStart: (agent: AgentDefinition) => {
+                activeAgents.add(agent.name);
+                if (activeAgents.size > 1) {
+                  // Multiple agents running - use multi-line progress
+                  multiProgress.start(agent.name, `${agent.display_name} çalışıyor...`);
+                } else {
+                  // Single agent - use ora spinner
+                  spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
+                }
               },
-              onAgentComplete: (result) => {
-                spinner.succeed(`Done: ${result.displayName} (${result.durationMs}ms)`);
+              onAgentComplete: (r: AgentResult) => {
+                activeAgents.delete(r.agentName);
+                const durationSec = (r.durationMs / 1000).toFixed(1);
+                if (activeAgents.size >= 1) {
+                  // Still other agents running - show in multi-progress
+                  multiProgress.succeed(r.agentName, `${r.displayName} tamamlandı (${durationSec}s)`);
+                } else {
+                  // Last agent done - use ora spinner
+                  spinner.succeed(`Done: ${r.displayName} (${r.durationMs}ms)`);
+                  multiProgress.stop();
+                }
               },
-              onAgentError: (agent, error) => {
-                spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
+              onAgentError: (agent: AgentDefinition, error: Error) => {
+                activeAgents.delete(agent.name);
+                if (activeAgents.size >= 1) {
+                  // Still other agents running - show in multi-progress
+                  multiProgress.fail(agent.name, `${agent.display_name} hata: ${error.message}`);
+                } else {
+                  // Last agent failed - use ora spinner
+                  spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
+                  multiProgress.stop();
+                }
               },
               onVerbose: options.verbose ? (msg) => console.log(`  [DEBUG] ${msg}`) : undefined,
             },
