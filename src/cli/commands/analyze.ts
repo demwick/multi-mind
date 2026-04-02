@@ -81,6 +81,7 @@ export function makeAnalyzeCommand(): Command {
           const result = await runPipeline(agents, brief, {
             model: merged.model,
             filterAgents: merged.agents,
+            verbose: options.verbose,
             callbacks: {
               onAgentStart: (agent) => {
                 spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
@@ -91,6 +92,7 @@ export function makeAnalyzeCommand(): Command {
               onAgentError: (agent, error) => {
                 spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
               },
+              onVerbose: options.verbose ? (msg) => console.log(`  [DEBUG] ${msg}`) : undefined,
             },
           });
 
