@@ -9,12 +9,13 @@ import { generateSummary } from '../../output/markdown.js';
 import { synthesize } from '../../orchestrator/synthesizer.js';
 import { loadConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
+import { collectBrief } from '../interactive.js';
 
 export function makeNewCommand(): Command {
   const cmd = new Command('new');
   cmd
     .description('Run the full multi-agent pipeline on a brief')
-    .argument('<brief>', 'The brief to process')
+    .argument('[brief]', 'The brief to process (interactive if omitted)')
     .option('-v, --verbose', 'Verbose output', false)
     .option('-o, --output-dir <dir>', 'Output base directory')
     .option('-m, --model <model>', 'Claude model to use')
@@ -23,7 +24,10 @@ export function makeNewCommand(): Command {
       'Comma-separated list of agent names to use',
       (val: string) => val.split(',').map((s) => s.trim()),
     )
-    .action(async (brief: string, options: { verbose: boolean; outputDir?: string; model?: string; agents?: string[] }) => {
+    .action(async (brief: string | undefined, options: { verbose: boolean; outputDir?: string; model?: string; agents?: string[] }) => {
+      if (!brief) {
+        brief = await collectBrief();
+      }
       const spinner = ora('Loading agents...').start();
       try {
         const fileConfig = loadConfig();
@@ -60,6 +64,7 @@ export function makeNewCommand(): Command {
         const result = await runPipeline(agents, brief, {
           model: merged.model,
           filterAgents: merged.agents,
+          verbose: options.verbose,
           callbacks: {
             onAgentStart: (agent) => {
               spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
@@ -70,6 +75,7 @@ export function makeNewCommand(): Command {
             onAgentError: (agent, error) => {
               spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
             },
+            onVerbose: options.verbose ? (msg) => console.log(`  [DEBUG] ${msg}`) : undefined,
           },
         });
 
