@@ -3,14 +3,35 @@
   "version": "0.1.0",
   "description": "Open source multi-agent decision system powered by Claude",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "multi-mind": "./dist/cli/index.js"
   },
+  "files": [
+    "dist",
+    "agents",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "dev": "tsx src/cli/index.ts",
     "test": "vitest run",
     "test:watch": "vitest"
+  },
+  "keywords": [
+    "multi-agent",
+    "ai",
+    "claude",
+    "cli",
+    "analysis",
+    "decision-making"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/demirel/multi-mind"
   },
   "engines": {
     "node": ">=18.0.0"
