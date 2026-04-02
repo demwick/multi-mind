@@ -6,6 +6,7 @@ import { makeRerunCommand } from './commands/rerun.js';
 import { makeDebateCommand } from './commands/debate.js';
 import { makeDecideCommand } from './commands/decide.js';
 import { makeAnalyzeCommand } from './commands/analyze.js';
+import { makeInitCommand } from './commands/init.js';
 
 const program = new Command();
 
@@ -14,6 +15,7 @@ program
   .description('Multi-agent decision system powered by Claude')
   .version('0.1.0');
 
+program.addCommand(makeInitCommand());
 program.addCommand(makeNewCommand());
 program.addCommand(makeAgentsCommand());
 program.addCommand(makeRerunCommand());
