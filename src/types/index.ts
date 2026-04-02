@@ -8,6 +8,7 @@ export interface AgentDefinition {
   model?: string;
   temperature?: number;
   system_prompt: string;
+  system_prompt_file?: string;
   output_schema?: Record<string, unknown>;
 }
 
@@ -40,9 +41,21 @@ export interface RunMeta {
   };
 }
 
+export interface RetryConfig {
+  maxRetries?: number;
+  baseDelayMs?: number;
+}
+
+export interface ProfileConfig {
+  name: string;
+  config_dir: string;
+}
+
 export interface GlobalOptions {
   verbose: boolean;
   outputDir: string;
   model?: string;
   agents?: string[];
+  retry?: RetryConfig;
+  profiles?: ProfileConfig[];
 }

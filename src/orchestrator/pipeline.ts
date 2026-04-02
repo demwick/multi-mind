@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentResult, PipelineResult } from '../types/index.js';
+import type { AgentDefinition, AgentResult, PipelineResult, RetryConfig, ProfileConfig } from '../types/index.js';
 import { runAgent } from '../agents/claude-runner.js';
 import { validateOutput } from '../agents/validator.js';
 
@@ -18,6 +18,8 @@ export async function runPipeline(
     callbacks?: PipelineCallbacks;
     filterAgents?: string[];
     verbose?: boolean;
+    retry?: RetryConfig;
+    profiles?: ProfileConfig[];
   },
 ): Promise<PipelineResult> {
   const start = Date.now();
@@ -79,6 +81,9 @@ export async function runPipeline(
         try {
           const result = await runAgent(agent, brief, previousOutputs, {
             model: options?.model,
+            retry: options?.retry,
+            profiles: options?.profiles,
+            onVerbose: options?.callbacks?.onVerbose,
           });
 
           // Log agent completion if verbose

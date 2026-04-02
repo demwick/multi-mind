@@ -7,6 +7,8 @@ import { runPipeline } from '../../orchestrator/pipeline.js';
 import { parseBrief } from '../../context/brief-parser.js';
 import { writeOutput } from '../../output/writer.js';
 import { generateSummary } from '../../output/markdown.js';
+import { loadConfig } from '../../config/loader.js';
+import { mergeConfig } from '../../config/merge.js';
 
 export function makeDecideCommand(): Command {
   const cmd = new Command('decide');
@@ -29,6 +31,12 @@ export function makeDecideCommand(): Command {
         const spinner = ora('Loading agents...').start();
 
         try {
+          const fileConfig = loadConfig();
+          const merged = mergeConfig(fileConfig, { model: options.model, agents: options.agents });
+          const retryConfig = merged.retry
+            ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
+            : undefined;
+
           const agentsDir = join(process.cwd(), 'agents');
           const agents = await loadAgents(agentsDir);
 
@@ -57,8 +65,10 @@ export function makeDecideCommand(): Command {
           spinner.succeed(`Agents ready (${parallelAgents.length}), running in parallel...`);
 
           const result = await runPipeline(parallelAgents, question, {
-            model: options.model,
-            filterAgents: options.agents,
+            model: merged.model,
+            filterAgents: merged.agents,
+            retry: retryConfig,
+            profiles: merged.profiles,
             callbacks: {
               onAgentStart: (agent) => {
                 spinner.start(`Running: ${agent.display_name}`);

@@ -10,5 +10,7 @@ export function mergeConfig(
     agents_dir: cliOpts.agents_dir ?? fileConfig.agents_dir,
     language: cliOpts.language ?? fileConfig.language,
     agents: cliOpts.agents ?? fileConfig.agents,
+    retry: cliOpts.retry ?? fileConfig.retry,
+    profiles: cliOpts.profiles ?? fileConfig.profiles,
   };
 }

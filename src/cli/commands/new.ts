@@ -112,6 +112,10 @@ export function makeNewCommand(): Command {
           },
         };
 
+        const retryConfig = merged.retry
+          ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
+          : undefined;
+
         let result;
         if (numRounds > 1) {
           result = await runMultiRound(agents, brief, {
@@ -119,6 +123,8 @@ export function makeNewCommand(): Command {
             model: merged.model,
             filterAgents: merged.agents,
             verbose: options.verbose,
+            retry: retryConfig,
+            profiles: merged.profiles,
             callbacks: {
               ...sharedCallbacks,
               onRoundStart: (round, total) => {
@@ -134,6 +140,8 @@ export function makeNewCommand(): Command {
             model: merged.model,
             filterAgents: merged.agents,
             verbose: options.verbose,
+            retry: retryConfig,
+            profiles: merged.profiles,
             callbacks: sharedCallbacks,
           });
         }

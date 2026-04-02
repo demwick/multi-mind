@@ -1,5 +1,36 @@
-import { describe, it, expect } from 'vitest';
-import { buildPrompt, parseClaudeOutput } from '../../src/agents/claude-runner.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { EventEmitter } from 'events';
+import type { ChildProcess } from 'child_process';
+import { buildPrompt, parseClaudeOutput, runAgent } from '../../src/agents/claude-runner.js';
+import type { AgentDefinition } from '../../src/types/index.js';
+
+vi.mock('child_process', () => ({ spawn: vi.fn() }));
+
+import { spawn } from 'child_process';
+const mockSpawn = vi.mocked(spawn);
+
+function makeChild(opts: {
+  exitCode?: number;
+  error?: Error;
+  data?: string;
+}): ChildProcess {
+  const child = new EventEmitter() as unknown as ChildProcess;
+  const stdout = new EventEmitter();
+  const stderr = new EventEmitter();
+  (child as unknown as Record<string, unknown>).stdin = { write: vi.fn(), end: vi.fn() };
+  (child as unknown as Record<string, unknown>).stdout = stdout;
+  (child as unknown as Record<string, unknown>).stderr = stderr;
+
+  if (opts.error) {
+    setTimeout(() => child.emit('error', opts.error!), 0);
+  } else {
+    setTimeout(() => {
+      if (opts.data) stdout.emit('data', Buffer.from(opts.data));
+      child.emit('close', opts.exitCode ?? 0);
+    }, 0);
+  }
+  return child;
+}
 
 describe('buildPrompt', () => {
   it('combines system prompt, previous outputs, and brief', () => {
@@ -101,5 +132,75 @@ That concludes my output.`;
 
     expect(result.text).toBe(raw);
     expect(result.structured).toBeNull();
+  });
+});
+
+describe('runAgent retry and profile', () => {
+  const agent: AgentDefinition = {
+    name: 'test-agent',
+    display_name: 'Test Agent',
+    description: 'test',
+    phase: 1,
+    depends_on: [],
+    input_from: [],
+    system_prompt: 'You are a test agent.',
+  };
+
+  beforeEach(() => {
+    mockSpawn.mockReset();
+  });
+
+  it('does not retry on ENOENT (non-transient error)', async () => {
+    mockSpawn.mockReturnValue(makeChild({
+      error: Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }),
+    }));
+
+    await expect(
+      runAgent(agent, 'brief', [], { retry: { maxRetries: 2, baseDelayMs: 10 } })
+    ).rejects.toThrow('ENOENT');
+
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on exit code error and eventually throws', async () => {
+    mockSpawn.mockImplementation(() => makeChild({ exitCode: 1 }));
+
+    await expect(
+      runAgent(agent, 'brief', [], { retry: { maxRetries: 1, baseDelayMs: 10 } })
+    ).rejects.toThrow('claude CLI exited with code 1');
+
+    // 1 initial + 1 retry
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry when maxRetries is 0', async () => {
+    mockSpawn.mockReturnValue(makeChild({ exitCode: 1 }));
+
+    await expect(
+      runAgent(agent, 'brief', [], { retry: { maxRetries: 0, baseDelayMs: 10 } })
+    ).rejects.toThrow();
+
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes CLAUDE_CONFIG_DIR env when profile is provided', async () => {
+    mockSpawn.mockReturnValue(makeChild({ data: '```yaml\nresult: ok\n```' }));
+
+    await runAgent(agent, 'brief', [], {
+      profiles: [{ name: 'primary', config_dir: '/tmp/claude-primary' }],
+      retry: { maxRetries: 0 },
+    });
+
+    const spawnOpts = mockSpawn.mock.calls[0][2] as { env?: NodeJS.ProcessEnv };
+    expect(spawnOpts?.env?.CLAUDE_CONFIG_DIR).toBe('/tmp/claude-primary');
+  });
+
+  it('backward compatible: no profiles → no CLAUDE_CONFIG_DIR override', async () => {
+    mockSpawn.mockReturnValue(makeChild({ data: '```yaml\nresult: ok\n```' }));
+
+    await runAgent(agent, 'brief', [], { retry: { maxRetries: 0 } });
+
+    const spawnOpts = mockSpawn.mock.calls[0][2] as { env?: NodeJS.ProcessEnv };
+    expect(spawnOpts?.env).toBeUndefined();
   });
 });

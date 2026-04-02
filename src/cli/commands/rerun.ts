@@ -6,6 +6,8 @@ import { loadAgents } from '../../agents/loader.js';
 import { runAgent } from '../../agents/claude-runner.js';
 import { generateAgentReport } from '../../output/markdown.js';
 import { generateAgentYaml } from '../../output/structured.js';
+import { loadConfig } from '../../config/loader.js';
+import { mergeConfig } from '../../config/merge.js';
 
 interface MetaJson {
   brief?: string;
@@ -27,6 +29,12 @@ export function makeRerunCommand(): Command {
         const spinner = ora('Loading agent and previous outputs...').start();
 
         try {
+          const fileConfig = loadConfig();
+          const merged = mergeConfig(fileConfig, { model: options.model });
+          const retryConfig = merged.retry
+            ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
+            : undefined;
+
           // Load agents to find the target agent
           const agentsDir = join(process.cwd(), 'agents');
           const agents = await loadAgents(agentsDir);
@@ -81,7 +89,9 @@ export function makeRerunCommand(): Command {
           }
 
           const result = await runAgent(agentToRun, brief, previousOutputs, {
-            model: options.model,
+            model: merged.model,
+            retry: retryConfig,
+            profiles: merged.profiles,
           });
 
           spinner.succeed(`Done: ${result.displayName} (${result.durationMs}ms)`);

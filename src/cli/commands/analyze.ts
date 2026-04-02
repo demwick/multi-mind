@@ -84,10 +84,16 @@ export function makeAnalyzeCommand(): Command {
           const activeAgents = new Set<string>();
           const multiProgress = new MultiProgress();
 
+          const retryConfig = merged.retry
+            ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
+            : undefined;
+
           const result = await runPipeline(agents, brief, {
             model: merged.model,
             filterAgents: merged.agents,
             verbose: options.verbose,
+            retry: retryConfig,
+            profiles: merged.profiles,
             callbacks: {
               onAgentStart: (agent: AgentDefinition) => {
                 activeAgents.add(agent.name);

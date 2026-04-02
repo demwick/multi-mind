@@ -5,6 +5,8 @@ import ora from 'ora';
 import { loadAgents } from '../../agents/loader.js';
 import { runAgent } from '../../agents/claude-runner.js';
 import { parseBrief } from '../../context/brief-parser.js';
+import { loadConfig } from '../../config/loader.js';
+import { mergeConfig } from '../../config/merge.js';
 
 export function makeDebateCommand(): Command {
   const cmd = new Command('debate');
@@ -27,6 +29,12 @@ export function makeDebateCommand(): Command {
         const spinner = ora('Loading agents...').start();
 
         try {
+          const fileConfig = loadConfig();
+          const merged = mergeConfig(fileConfig, { model: options.model });
+          const retryConfig = merged.retry
+            ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
+            : undefined;
+
           if (options.agents.length !== 2) {
             spinner.fail('Debate requires exactly 2 agents (use --agents agent1,agent2)');
             process.exit(1);
@@ -57,7 +65,11 @@ export function makeDebateCommand(): Command {
           };
 
           spinner.start(`PRO position: running ${proAgent.display_name}...`);
-          const proResult = await runAgent(proAgentWithPosition, topic, [], { model: options.model });
+          const proResult = await runAgent(proAgentWithPosition, topic, [], {
+            model: merged.model,
+            retry: retryConfig,
+            profiles: merged.profiles,
+          });
           spinner.succeed(`PRO done: ${proResult.displayName} (${proResult.durationMs}ms)`);
 
           // CON agent argues against, receives PRO output
@@ -71,7 +83,7 @@ export function makeDebateCommand(): Command {
             conAgentWithPosition,
             topic,
             [{ agentName: proResult.agentName, output: proResult.output }],
-            { model: options.model },
+            { model: merged.model, retry: retryConfig, profiles: merged.profiles },
           );
           spinner.succeed(`CON done: ${conResult.displayName} (${conResult.durationMs}ms)`);
 

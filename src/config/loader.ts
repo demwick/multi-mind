@@ -9,6 +9,11 @@ export interface MultiMindConfig {
   agents_dir?: string;
   language?: string;
   agents?: string[];
+  retry?: {
+    max_retries?: number;
+    base_delay_ms?: number;
+  };
+  profiles?: Array<{ name: string; config_dir: string }>;
 }
 
 const CONFIG_FILENAMES = ['.multimindrc.yaml', '.multimindrc.yml'];

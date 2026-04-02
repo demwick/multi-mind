@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
+import os from 'os';
 import { parse as parseYaml } from 'yaml';
-import type { AgentDefinition, AgentResult } from '../types/index.js';
+import type { AgentDefinition, AgentResult, RetryConfig, ProfileConfig } from '../types/index.js';
 
 export interface PromptInput {
   systemPrompt: string;
@@ -54,13 +55,32 @@ export function parseClaudeOutput(raw: string): {
   }
 }
 
+function isTransientError(err: Error): boolean {
+  // ENOENT means claude CLI not found — not retriable
+  if (err.message.includes('ENOENT')) return false;
+  return true;
+}
+
+function isRateLimitError(err: Error): boolean {
+  const msg = err.message.toLowerCase();
+  return msg.includes('rate limit') || msg.includes('429') || msg.includes('too many requests');
+}
+
 export async function runAgent(
   agent: AgentDefinition,
   brief: string,
   previousOutputs: Array<{ agentName: string; output: string }>,
-  options?: { model?: string }
+  options?: {
+    model?: string;
+    retry?: RetryConfig;
+    profiles?: ProfileConfig[];
+    onVerbose?: (msg: string) => void;
+  }
 ): Promise<AgentResult> {
   const start = Date.now();
+  const maxRetries = options?.retry?.maxRetries ?? 2;
+  const baseDelayMs = options?.retry?.baseDelayMs ?? 3000;
+  const profiles = options?.profiles ?? [];
 
   const prompt = buildPrompt({
     systemPrompt: agent.system_prompt,
@@ -76,52 +96,90 @@ export async function runAgent(
 
   const TIMEOUT_MS = 600_000; // 10 minutes per agent
 
-  const raw = await new Promise<string>((resolve, reject) => {
-    const child = spawn('claude', args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
+  function attemptRun(configDir?: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const resolvedConfigDir = configDir
+        ? configDir.replace(/^~/, os.homedir())
+        : undefined;
+
+      const child = spawn('claude', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...(resolvedConfigDir ? { env: { ...process.env, CLAUDE_CONFIG_DIR: resolvedConfigDir } } : {}),
+      });
+
+      let stdout = '';
+      let stderr = '';
+      let killed = false;
+
+      const timer = setTimeout(() => {
+        killed = true;
+        child.kill('SIGTERM');
+        reject(new Error(`Agent timeout (${TIMEOUT_MS / 1000}s)`));
+      }, TIMEOUT_MS);
+
+      child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+      child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        if (killed) return;
+        if (code !== 0) {
+          reject(new Error(`claude CLI exited with code ${code}: ${stderr.slice(0, 500)}`));
+          return;
+        }
+        resolve(stdout);
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(new Error(`claude CLI error: ${err.message}`));
+      });
+
+      child.stdin.write(prompt);
+      child.stdin.end();
     });
+  }
 
-    let stdout = '';
-    let stderr = '';
-    let killed = false;
+  let profileIndex = 0;
+  let lastError: Error = new Error('Unknown error');
 
-    const timer = setTimeout(() => {
-      killed = true;
-      child.kill('SIGTERM');
-      reject(new Error(`Agent timeout (${TIMEOUT_MS / 1000}s)`));
-    }, TIMEOUT_MS);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const configDir = profiles.length > 0 ? profiles[profileIndex % profiles.length].config_dir : undefined;
+    try {
+      const raw = await attemptRun(configDir);
+      const { text, structured } = parseClaudeOutput(raw);
+      return {
+        agentName: agent.name,
+        displayName: agent.display_name,
+        output: text,
+        structured,
+        durationMs: Date.now() - start,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
 
-    child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
-    child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+      // Non-transient (e.g. ENOENT) → give up immediately
+      if (!isTransientError(lastError)) throw lastError;
 
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (killed) return;
-      if (code !== 0) {
-        reject(new Error(`claude CLI exited with code ${code}: ${stderr.slice(0, 500)}`));
-        return;
+      // Last attempt → give up
+      if (attempt >= maxRetries) throw lastError;
+
+      // Rate limit → rotate to next profile
+      if (isRateLimitError(lastError) && profiles.length > 1) {
+        profileIndex++;
+        options?.onVerbose?.(
+          `Rate limit on profile "${profiles[(profileIndex - 1) % profiles.length].name}", switching to "${profiles[profileIndex % profiles.length].name}"`
+        );
       }
-      resolve(stdout);
-    });
 
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      reject(new Error(`claude CLI error: ${err.message}`));
-    });
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      options?.onVerbose?.(
+        `Agent ${agent.name} attempt ${attempt + 1} failed (${lastError.message.slice(0, 80)}), retrying in ${delay}ms...`
+      );
+      await new Promise((res) => setTimeout(res, delay));
+    }
+  }
 
-    child.stdin.write(prompt);
-    child.stdin.end();
-  });
-
-  const { text, structured } = parseClaudeOutput(raw);
-  const durationMs = Date.now() - start;
-
-  return {
-    agentName: agent.name,
-    displayName: agent.display_name,
-    output: text,
-    structured,
-    durationMs,
-    timestamp: new Date().toISOString(),
-  };
+  throw lastError;
 }
