@@ -7,6 +7,7 @@ import { parseBrief } from '../../context/brief-parser.js';
 import { loadProjectContext, projectContextToBrief } from '../../context/project-loader.js';
 import { writeOutput } from '../../output/writer.js';
 import { generateSummary } from '../../output/markdown.js';
+import { synthesize } from '../../orchestrator/synthesizer.js';
 
 export function makeAnalyzeCommand(): Command {
   const cmd = new Command('analyze');
@@ -81,8 +82,18 @@ export function makeAnalyzeCommand(): Command {
           });
 
           const parsed = parseBrief(brief, options.outputDir);
+
+          spinner.start('Yönetici özeti sentezleniyor...');
+          let executiveSummary: string | undefined;
+          try {
+            executiveSummary = await synthesize(brief, result.agents, { model: options.model });
+            spinner.succeed('Yönetici özeti hazır');
+          } catch {
+            spinner.warn('Yönetici özeti oluşturulamadı, devam ediliyor...');
+          }
+
           spinner.start('Writing output...');
-          writeOutput(result, parsed.outputDir);
+          writeOutput(result, parsed.outputDir, executiveSummary);
           spinner.succeed(`Output written to ${parsed.outputDir}`);
 
           if (options.verbose) {

@@ -1,6 +1,6 @@
 import type { AgentResult, PipelineResult } from '../types/index.js';
 
-export function generateSummary(result: PipelineResult): string {
+export function generateSummary(result: PipelineResult, executiveSummary?: string): string {
   const date = new Date().toISOString().split('T')[0];
   const durationSec = (result.totalDurationMs / 1000).toFixed(2);
 
@@ -8,7 +8,7 @@ export function generateSummary(result: PipelineResult): string {
     return `## ${agent.displayName}\n\n${agent.output}`;
   });
 
-  return [
+  const parts = [
     `# multi-mind Analiz Raporu`,
     ``,
     `**Tarih:** ${date}`,
@@ -17,8 +17,15 @@ export function generateSummary(result: PipelineResult): string {
     ``,
     `---`,
     ``,
-    sections.join('\n\n---\n\n'),
-  ].join('\n');
+  ];
+
+  if (executiveSummary) {
+    parts.push(`## Yönetici Özeti`, ``, executiveSummary, ``, `---`, ``);
+  }
+
+  parts.push(sections.join('\n\n---\n\n'));
+
+  return parts.join('\n');
 }
 
 export function generateAgentReport(agent: AgentResult): string {
