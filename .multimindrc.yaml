@@ -1,0 +1,21 @@
+# .multimindrc.yaml — multi-mind project-level configuration
+# Place this file in your project root (or any parent directory up to ~).
+# CLI flags always take precedence over values set here.
+
+# Default model for all agents
+# model: claude-sonnet-4-6
+
+# Default output directory (relative to cwd)
+# output_dir: output/
+
+# Custom agents directory (default: ./agents/)
+# agents_dir: ./agents/
+
+# Output language
+# language: tr
+
+# Which agents to run (default: all agents found in agents_dir)
+# agents:
+#   - product-manager
+#   - cto
+#   - architect

@@ -8,6 +8,8 @@ import { loadProjectContext, projectContextToBrief } from '../../context/project
 import { writeOutput } from '../../output/writer.js';
 import { generateSummary } from '../../output/markdown.js';
 import { synthesize } from '../../orchestrator/synthesizer.js';
+import { loadConfig } from '../../config/loader.js';
+import { mergeConfig } from '../../config/merge.js';
 
 export function makeAnalyzeCommand(): Command {
   const cmd = new Command('analyze');
@@ -15,7 +17,7 @@ export function makeAnalyzeCommand(): Command {
     .description('Analyze a project directory with the multi-agent pipeline')
     .argument('<path>', 'Path to the project to analyze')
     .option('-v, --verbose', 'Verbose output', false)
-    .option('-o, --output-dir <dir>', 'Output base directory', 'output')
+    .option('-o, --output-dir <dir>', 'Output base directory')
     .option('-m, --model <model>', 'Claude model to use')
     .option(
       '-a, --agents <agents>',
@@ -25,11 +27,23 @@ export function makeAnalyzeCommand(): Command {
     .action(
       async (
         projectPath: string,
-        options: { verbose: boolean; outputDir: string; model?: string; agents?: string[] },
+        options: { verbose: boolean; outputDir?: string; model?: string; agents?: string[] },
       ) => {
         const spinner = ora('Loading project context...').start();
 
         try {
+          const fileConfig = loadConfig();
+          const merged = mergeConfig(fileConfig, {
+            model: options.model,
+            output_dir: options.outputDir,
+            agents: options.agents,
+          });
+
+          const outputDir = merged.output_dir ?? 'output';
+          const agentsDir = merged.agents_dir
+            ? resolve(process.cwd(), merged.agents_dir)
+            : join(process.cwd(), 'agents');
+
           const absolutePath = resolve(projectPath);
           const ctx = loadProjectContext(absolutePath);
 
@@ -46,7 +60,6 @@ export function makeAnalyzeCommand(): Command {
           }
 
           spinner.start('Loading agents...');
-          const agentsDir = join(process.cwd(), 'agents');
           const agents = await loadAgents(agentsDir);
 
           if (agents.length === 0) {
@@ -66,8 +79,8 @@ export function makeAnalyzeCommand(): Command {
           spinner.succeed(`Agents loaded (${agents.length})`);
 
           const result = await runPipeline(agents, brief, {
-            model: options.model,
-            filterAgents: options.agents,
+            model: merged.model,
+            filterAgents: merged.agents,
             callbacks: {
               onAgentStart: (agent) => {
                 spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
@@ -81,12 +94,12 @@ export function makeAnalyzeCommand(): Command {
             },
           });
 
-          const parsed = parseBrief(brief, options.outputDir);
+          const parsed = parseBrief(brief, outputDir);
 
           spinner.start('Yönetici özeti sentezleniyor...');
           let executiveSummary: string | undefined;
           try {
-            executiveSummary = await synthesize(brief, result.agents, { model: options.model });
+            executiveSummary = await synthesize(brief, result.agents, { model: merged.model });
             spinner.succeed('Yönetici özeti hazır');
           } catch {
             spinner.warn('Yönetici özeti oluşturulamadı, devam ediliyor...');
