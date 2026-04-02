@@ -119,7 +119,7 @@ export async function runPipeline(
         const errorResult: AgentResult = {
           agentName: agent.name,
           displayName: agent.display_name,
-          output: `HATA: ${errorMessage}`,
+          output: `ERROR: ${errorMessage}`,
           structured: null,
           durationMs: 0,
           timestamp: new Date().toISOString(),

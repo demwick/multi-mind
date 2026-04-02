@@ -93,7 +93,7 @@ export function makeAnalyzeCommand(): Command {
                 activeAgents.add(agent.name);
                 if (activeAgents.size > 1) {
                   // Multiple agents running - use multi-line progress
-                  multiProgress.start(agent.name, `${agent.display_name} çalışıyor...`);
+                  multiProgress.start(agent.name, `${agent.display_name} running...`);
                 } else {
                   // Single agent - use ora spinner
                   spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
@@ -104,7 +104,7 @@ export function makeAnalyzeCommand(): Command {
                 const durationSec = (r.durationMs / 1000).toFixed(1);
                 if (activeAgents.size >= 1) {
                   // Still other agents running - show in multi-progress
-                  multiProgress.succeed(r.agentName, `${r.displayName} tamamlandı (${durationSec}s)`);
+                  multiProgress.succeed(r.agentName, `${r.displayName} completed (${durationSec}s)`);
                 } else {
                   // Last agent done - use ora spinner
                   spinner.succeed(`Done: ${r.displayName} (${r.durationMs}ms)`);
@@ -115,7 +115,7 @@ export function makeAnalyzeCommand(): Command {
                 activeAgents.delete(agent.name);
                 if (activeAgents.size >= 1) {
                   // Still other agents running - show in multi-progress
-                  multiProgress.fail(agent.name, `${agent.display_name} hata: ${error.message}`);
+                  multiProgress.fail(agent.name, `${agent.display_name} error: ${error.message}`);
                 } else {
                   // Last agent failed - use ora spinner
                   spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
@@ -128,13 +128,13 @@ export function makeAnalyzeCommand(): Command {
 
           const parsed = parseBrief(brief, outputDir);
 
-          spinner.start('Yönetici özeti sentezleniyor...');
+          spinner.start('Synthesizing executive summary...');
           let executiveSummary: string | undefined;
           try {
             executiveSummary = await synthesize(brief, result.agents, { model: merged.model });
-            spinner.succeed('Yönetici özeti hazır');
+            spinner.succeed('Executive summary ready');
           } catch {
-            spinner.warn('Yönetici özeti oluşturulamadı, devam ediliyor...');
+            spinner.warn('Could not generate executive summary, continuing...');
           }
 
           spinner.start('Writing output...');

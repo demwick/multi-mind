@@ -16,7 +16,7 @@ export function buildPrompt(input: PromptInput): string {
   parts.push(systemPrompt);
 
   if (previousOutputs.length > 0) {
-    parts.push('\n## Onceki Ajan Ciktilari');
+    parts.push('\n## Previous Agent Outputs');
     for (const { agentName, output } of previousOutputs) {
       parts.push(`\n### ${agentName}\n${output}`);
     }
@@ -25,11 +25,11 @@ export function buildPrompt(input: PromptInput): string {
   parts.push(`\n## Brief\n${brief}`);
 
   if (feedback) {
-    parts.push(`\n## Geri Bildirim\n${feedback}`);
+    parts.push(`\n## Feedback\n${feedback}`);
   }
 
   parts.push(
-    '\nLutfen yapilandirilmis ciktini bir YAML kod blogu icinde sagla:\n```yaml\n# ciktini buraya yaz\n```'
+    '\nPlease provide your structured output inside a YAML code block:\n```yaml\n# your output here\n```'
   );
 
   return parts.join('\n');

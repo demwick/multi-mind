@@ -10,26 +10,26 @@ export async function synthesize(
     .map((r) => `### ${r.displayName}\n${r.output}`)
     .join('\n\n---\n\n');
 
-  const prompt = `Sen deneyimli bir teknik danışmansın. Aşağıda bir projeyle ilgili farklı uzmanların (Product Manager, CTO, Architect vb.) analizleri var.
+  const prompt = `You are an experienced technical consultant. Below are analyses from different experts (Product Manager, CTO, Architect, etc.) about a project.
 
 ## Brief
 ${brief}
 
-## Uzman Analizleri
+## Expert Analyses
 
 ${agentSummaries}
 
 ---
 
-Görevin: Tüm uzman görüşlerini sentezleyerek kısa ve öz bir **Yönetici Özeti** yaz.
+Your task: Synthesize all expert opinions into a concise **Executive Summary**.
 
-Kurallar:
-- Maksimum 5-7 cümle
-- Tüm uzmanların ortak noktalarını vurgula
-- Varsa önemli ayrışma noktalarını belirt
-- Somut bir sonuç/öneri ile bitir
-- Türkçe yaz
-- Sadece özet metnini yaz, başlık veya markdown formatı ekleme`;
+Rules:
+- Maximum 5-7 sentences
+- Highlight consensus points across all experts
+- Note any significant disagreements
+- End with a concrete recommendation
+- **LANGUAGE RULE:** Write the summary in the same language as the brief/analyses above
+- Write only the summary text, no titles or markdown formatting`;
 
   const args = ['-p', '-', '--output-format', 'text'];
   if (options?.model) {

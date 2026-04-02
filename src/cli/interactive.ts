@@ -7,20 +7,20 @@ export async function collectBrief(): Promise<string> {
   });
 
   rl.on('SIGINT', () => {
-    console.log('\nİptal edildi.');
+    console.log('\nCancelled.');
     rl.close();
     process.exit(0);
   });
 
   const ask = (question: string, required = false, defaultValue = ''): Promise<string> => {
     return new Promise((resolve) => {
-      const prompt = defaultValue ? `${question} (varsayılan: ${defaultValue})\n> ` : `${question}\n> `;
+      const prompt = defaultValue ? `${question} (default: ${defaultValue})\n> ` : `${question}\n> `;
 
       const ask_ = () => {
         rl.question(prompt, (answer) => {
           const value = answer.trim() || defaultValue;
           if (required && !value) {
-            console.log('Bu alan zorunludur, lütfen bir değer girin.');
+            console.log('This field is required, please enter a value.');
             ask_();
           } else {
             resolve(value);
@@ -32,28 +32,28 @@ export async function collectBrief(): Promise<string> {
     });
   };
 
-  console.log('\nMulti-Mind Proje Briefingi\n' + '='.repeat(30));
+  console.log('\nMulti-Mind Project Brief\n' + '='.repeat(30));
 
-  const name = await ask('Proje adı nedir?', true);
-  const description = await ask('Projeyi kısaca tanımla:', true);
-  const platform = await ask('Hedef platform? (web / mobil / desktop / API / diğer)', false, 'web');
-  const audience = await ask('Hedef kitle kimdir?', false);
-  const tech = await ask('Tercih edilen teknolojiler var mı? (örn: React, Node.js, PostgreSQL)', false);
-  const constraints = await ask('Proje bütçe/zaman kısıtı var mı?', false);
-  const notes = await ask('Özel gereksinimler veya notlar?', false);
+  const name = await ask('Project name:', true);
+  const description = await ask('Brief description:', true);
+  const platform = await ask('Target platform? (web / mobile / desktop / API / other)', false, 'web');
+  const audience = await ask('Who is the target audience?', false);
+  const tech = await ask('Preferred technologies? (e.g. React, Node.js, PostgreSQL)', false);
+  const constraints = await ask('Any budget/time constraints?', false);
+  const notes = await ask('Special requirements or notes?', false);
 
   rl.close();
 
   const lines: string[] = [
-    `Proje: ${name}`,
-    `Açıklama: ${description}`,
+    `Project: ${name}`,
+    `Description: ${description}`,
     `Platform: ${platform}`,
   ];
 
-  if (audience) lines.push(`Hedef Kitle: ${audience}`);
-  if (tech) lines.push(`Teknolojiler: ${tech}`);
-  if (constraints) lines.push(`Kısıtlar: ${constraints}`);
-  if (notes) lines.push(`Notlar: ${notes}`);
+  if (audience) lines.push(`Target Audience: ${audience}`);
+  if (tech) lines.push(`Technologies: ${tech}`);
+  if (constraints) lines.push(`Constraints: ${constraints}`);
+  if (notes) lines.push(`Notes: ${notes}`);
 
   return lines.join('\n');
 }

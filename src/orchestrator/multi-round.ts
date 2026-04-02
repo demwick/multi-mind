@@ -22,20 +22,22 @@ function buildReviewInstruction(roundNumber: number, previousRoundResults: Agent
   return `
 ---
 
-## Tur ${roundNumber} - Cok Disiplinli Inceleme
+## Round ${roundNumber} — Cross-Disciplinary Review
 
-Bu analizin ${roundNumber}. turudur. Asagida TUM ajanlarin onceki tur ciktilari var:
+This is round ${roundNumber} of the analysis. Below are ALL agents' outputs from the previous round.
 
 ${allOutputs}
 
-Gorevlerin:
-1. Diger ajanlarin analizlerini incele
-2. Katilmadigin varsayimlara veya onerilere ITIRAZ ET, gerekceleriyle
-3. Yeni bilgiler isiginda kendi analizini REVIZE ET
-4. Su basliklari ekle:
-   - "Uzlasma Noktalari": Tum ajanlarla hemfikir oldugun noktalar
-   - "Itirazlarim": Katilmadigin noktalar ve nedenleri
-   - "Revize Edilen Onerilerim": Guncellemis tavsiyelerin`;
+Your tasks:
+1. Review other agents' analyses carefully
+2. CHALLENGE any assumptions or recommendations you disagree with, explaining your reasoning
+3. REVISE your own analysis based on cross-functional insights
+4. Add these sections:
+   - "Consensus Points": Areas where you agree with all agents
+   - "My Objections": Points you disagree with and why
+   - "Revised Recommendations": Your updated recommendations
+
+**LANGUAGE RULE:** Respond in the same language as the original analyses.`;
 }
 
 export async function runMultiRound(
@@ -170,7 +172,7 @@ export async function runMultiRound(
           const errorResult: AgentResult = {
             agentName: agent.name,
             displayName: agent.display_name,
-            output: `HATA: ${errorMessage}`,
+            output: `ERROR: ${errorMessage}`,
             structured: null,
             durationMs: 0,
             timestamp: new Date().toISOString(),

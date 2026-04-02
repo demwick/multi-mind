@@ -7,33 +7,33 @@ export function generateSummary(result: PipelineResult, executiveSummary?: strin
   const isMultiRound = numRounds > 1;
 
   const sections = result.agents.map((agent) => {
-    const isFailed = agent.structured === null && agent.output.startsWith('HATA:');
+    const isFailed = agent.structured === null && agent.output.startsWith('ERROR:');
     if (isFailed) {
-      const errorDetail = agent.output.replace(/^HATA:\s*/, '');
-      return `## ${agent.displayName} ⚠️ HATA\n\n> Bu ajan çalıştırılırken hata oluştu: ${errorDetail}`;
+      const errorDetail = agent.output.replace(/^ERROR:\s*/, '');
+      return `## ${agent.displayName} ⚠️ ERROR\n\n> Error occurred while running this agent: ${errorDetail}`;
     }
     const heading = isMultiRound
-      ? `## ${agent.displayName} (Revize Edilmis)`
+      ? `## ${agent.displayName} (Revised)`
       : `## ${agent.displayName}`;
     return `${heading}\n\n${agent.output}`;
   });
 
   const parts = [
-    `# multi-mind Analiz Raporu`,
+    `# multi-mind Analysis Report`,
     ``,
-    `**Tarih:** ${date}`,
+    `**Date:** ${date}`,
     `**Brief:** ${result.brief}`,
-    `**Toplam Süre:** ${durationSec}s`,
+    `**Total Duration:** ${durationSec}s`,
   ];
 
   if (isMultiRound) {
-    parts.push(`**Analiz Turlari:** ${numRounds}`);
+    parts.push(`**Analysis Rounds:** ${numRounds}`);
   }
 
   parts.push(``, `---`, ``);
 
   if (executiveSummary) {
-    parts.push(`## Yönetici Özeti`, ``, executiveSummary, ``, `---`, ``);
+    parts.push(`## Executive Summary`, ``, executiveSummary, ``, `---`, ``);
   }
 
   parts.push(sections.join('\n\n---\n\n'));
@@ -46,8 +46,8 @@ export function generateAgentReport(agent: AgentResult): string {
     `# ${agent.displayName}`,
     ``,
     `**Agent:** ${agent.agentName}`,
-    `**Süre:** ${agent.durationMs}ms`,
-    `**Zaman:** ${agent.timestamp}`,
+    `**Duration:** ${agent.durationMs}ms`,
+    `**Time:** ${agent.timestamp}`,
     ``,
     `---`,
     ``,

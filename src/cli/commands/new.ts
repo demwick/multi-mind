@@ -76,7 +76,7 @@ export function makeNewCommand(): Command {
             activeAgents.add(agent.name);
             if (activeAgents.size > 1) {
               // Multiple agents running - use multi-line progress
-              multiProgress.start(agent.name, `${agent.display_name} çalışıyor...`);
+              multiProgress.start(agent.name, `${agent.display_name} running...`);
             } else {
               // Single agent - use ora spinner
               spinner.start(`Running agent: ${agent.display_name} (phase ${agent.phase})`);
@@ -87,7 +87,7 @@ export function makeNewCommand(): Command {
             const durationSec = (r.durationMs / 1000).toFixed(1);
             if (activeAgents.size >= 1) {
               // Still other agents running - show in multi-progress
-              multiProgress.succeed(r.agentName, `${r.displayName} tamamlandı (${durationSec}s)`);
+              multiProgress.succeed(r.agentName, `${r.displayName} completed (${durationSec}s)`);
             } else {
               // Last agent done - use ora spinner
               spinner.succeed(`Done: ${r.displayName} (${r.durationMs}ms)`);
@@ -98,7 +98,7 @@ export function makeNewCommand(): Command {
             activeAgents.delete(agent.name);
             if (activeAgents.size >= 1) {
               // Still other agents running - show in multi-progress
-              multiProgress.fail(agent.name, `${agent.display_name} hata: ${error.message}`);
+              multiProgress.fail(agent.name, `${agent.display_name} error: ${error.message}`);
             } else {
               // Last agent failed - use ora spinner
               spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
@@ -107,7 +107,7 @@ export function makeNewCommand(): Command {
           },
           onVerbose: options.verbose ? (msg: string) => console.log(`  [DEBUG] ${msg}`) : undefined,
           onValidationWarning: (agent: AgentDefinition, errors: string[]) => {
-            console.warn(`  ⚠️  ${agent.display_name} schema uyarısı:`);
+            console.warn(`  ⚠️  ${agent.display_name} schema warning:`);
             errors.forEach(e => console.warn(`    - ${e}`));
           },
         };
@@ -122,10 +122,10 @@ export function makeNewCommand(): Command {
             callbacks: {
               ...sharedCallbacks,
               onRoundStart: (round, total) => {
-                spinner.start(`Tur ${round}/${total} basliyor...`);
+                spinner.start(`Starting round ${round}/${total}...`);
               },
               onRoundComplete: (round, roundResults) => {
-                spinner.succeed(`Tur ${round} tamamlandi (${roundResults.length} ajan)`);
+                spinner.succeed(`Round ${round} complete (${roundResults.length} agents)`);
               },
             },
           });
@@ -138,13 +138,13 @@ export function makeNewCommand(): Command {
           });
         }
 
-        spinner.start('Yönetici özeti sentezleniyor...');
+        spinner.start('Synthesizing executive summary...');
         let executiveSummary: string | undefined;
         try {
           executiveSummary = await synthesize(brief, result.agents, { model: merged.model });
-          spinner.succeed('Yönetici özeti hazır');
+          spinner.succeed('Executive summary ready');
         } catch {
-          spinner.warn('Yönetici özeti oluşturulamadı, devam ediliyor...');
+          spinner.warn('Could not generate executive summary, continuing...');
         }
 
         spinner.start('Writing output...');
@@ -152,8 +152,8 @@ export function makeNewCommand(): Command {
         spinner.succeed(`Output written to ${parsed.outputDir}`);
 
         if (result.failedAgents.length > 0) {
-          console.warn(`\n⚠️  Bazı ajanlar başarısız oldu: ${result.failedAgents.join(', ')}`);
-          console.warn(`    Rapor kısmi sonuçlarla oluşturuldu.`);
+          console.warn(`\n⚠️  Some agents failed: ${result.failedAgents.join(', ')}`);
+          console.warn(`    Report generated with partial results.`);
         }
 
         if (options.verbose) {
