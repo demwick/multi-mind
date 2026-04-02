@@ -12,6 +12,7 @@ import { synthesize } from '../../orchestrator/synthesizer.js';
 import { loadConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
 import { collectBrief } from '../interactive.js';
+import { MultiProgress } from '../progress.js';
 
 export function makeNewCommand(): Command {
   const cmd = new Command('new');
@@ -76,6 +77,10 @@ export function makeNewCommand(): Command {
             spinner.fail(`Error in ${agent.display_name}: ${error.message}`);
           },
           onVerbose: options.verbose ? (msg: string) => console.log(`  [DEBUG] ${msg}`) : undefined,
+          onValidationWarning: (agent: AgentDefinition, errors: string[]) => {
+            console.warn(`  ⚠️  ${agent.display_name} schema uyarısı:`);
+            errors.forEach(e => console.warn(`    - ${e}`));
+          },
         };
 
         let result;

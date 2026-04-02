@@ -1,11 +1,13 @@
 import type { AgentDefinition, AgentResult, PipelineResult } from '../types/index.js';
 import { runAgent } from '../agents/claude-runner.js';
+import { validateOutput } from '../agents/validator.js';
 
 export interface PipelineCallbacks {
   onAgentStart?: (agent: AgentDefinition) => void;
   onAgentComplete?: (result: AgentResult) => void;
   onAgentError?: (agent: AgentDefinition, error: Error) => void;
   onVerbose?: (message: string) => void;
+  onValidationWarning?: (agent: AgentDefinition, errors: string[]) => void;
 }
 
 export async function runPipeline(
@@ -87,6 +89,13 @@ export async function runPipeline(
           }
 
           options?.callbacks?.onAgentComplete?.(result);
+
+          // Validate structured output against output_schema if defined
+          const validation = validateOutput(result.structured, agent.output_schema);
+          if (!validation.valid) {
+            options?.callbacks?.onValidationWarning?.(agent, validation.errors);
+          }
+
           return result;
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
