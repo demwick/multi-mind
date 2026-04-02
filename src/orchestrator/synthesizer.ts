@@ -36,19 +36,29 @@ Kurallar:
     args.push('--model', options.model);
   }
 
+  const TIMEOUT_MS = 300_000; // 5 minutes for synthesis
+
   const stdout = await new Promise<string>((resolve, reject) => {
     const child = spawn('claude', args, {
-      timeout: 120_000,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let out = '';
     let err = '';
+    let killed = false;
+
+    const timer = setTimeout(() => {
+      killed = true;
+      child.kill('SIGTERM');
+      reject(new Error(`Synthesizer timeout (${TIMEOUT_MS / 1000}s)`));
+    }, TIMEOUT_MS);
 
     child.stdout.on('data', (data: Buffer) => { out += data.toString(); });
     child.stderr.on('data', (data: Buffer) => { err += data.toString(); });
 
     child.on('close', (code) => {
+      clearTimeout(timer);
+      if (killed) return;
       if (code !== 0) {
         reject(new Error(`claude CLI exited with code ${code}: ${err.slice(0, 500)}`));
         return;
@@ -57,6 +67,7 @@ Kurallar:
     });
 
     child.on('error', (e) => {
+      clearTimeout(timer);
       reject(new Error(`claude CLI error: ${e.message}`));
     });
 

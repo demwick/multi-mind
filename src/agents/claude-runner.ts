@@ -74,19 +74,29 @@ export async function runAgent(
     args.push('--model', model);
   }
 
+  const TIMEOUT_MS = 600_000; // 10 minutes per agent
+
   const raw = await new Promise<string>((resolve, reject) => {
     const child = spawn('claude', args, {
-      timeout: 300_000,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
     let stderr = '';
+    let killed = false;
+
+    const timer = setTimeout(() => {
+      killed = true;
+      child.kill('SIGTERM');
+      reject(new Error(`Agent timeout (${TIMEOUT_MS / 1000}s)`));
+    }, TIMEOUT_MS);
 
     child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
     child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
 
     child.on('close', (code) => {
+      clearTimeout(timer);
+      if (killed) return;
       if (code !== 0) {
         reject(new Error(`claude CLI exited with code ${code}: ${stderr.slice(0, 500)}`));
         return;
@@ -95,6 +105,7 @@ export async function runAgent(
     });
 
     child.on('error', (err) => {
+      clearTimeout(timer);
       reject(new Error(`claude CLI error: ${err.message}`));
     });
 
