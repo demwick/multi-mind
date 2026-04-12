@@ -31,16 +31,16 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/demirel/multi-mind"
+    "url": "https://github.com/demwick/multi-mind"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "license": "MIT",
-  "author": "Talha Demirel <talhademirell@outlook.com> (https://github.com/demirel)",
-  "homepage": "https://github.com/demirel/multi-mind#readme",
+  "author": "Talha Demirel <talhademirell@outlook.com> (https://github.com/demwick)",
+  "homepage": "https://github.com/demwick/multi-mind#readme",
   "bugs": {
-    "url": "https://github.com/demirel/multi-mind/issues"
+    "url": "https://github.com/demwick/multi-mind/issues"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.65",
