@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentResult, PipelineResult, RetryConfig, ProfileConfig } from '../types/index.js';
+import type { AgentDefinition, AgentResult, PipelineResult, RetryConfig, ProfileConfig, ProviderConfig } from '../types/index.js';
 import { runAgent } from '../agents/claude-runner.js';
 import { validateOutput } from '../agents/validator.js';
 
@@ -20,6 +20,7 @@ export async function runPipeline(
     verbose?: boolean;
     retry?: RetryConfig;
     profiles?: ProfileConfig[];
+    providerConfig?: ProviderConfig;
   },
 ): Promise<PipelineResult> {
   const start = Date.now();
@@ -83,6 +84,7 @@ export async function runPipeline(
             model: options?.model,
             retry: options?.retry,
             profiles: options?.profiles,
+            providerConfig: options?.providerConfig,
             onVerbose: options?.callbacks?.onVerbose,
           });
 

@@ -6,7 +6,7 @@ import { loadAgents } from '../../agents/loader.js';
 import { runAgent } from '../../agents/claude-runner.js';
 import { generateAgentReport } from '../../output/markdown.js';
 import { generateAgentYaml } from '../../output/structured.js';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, extractProviderConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
 
 interface MetaJson {
@@ -34,6 +34,7 @@ export function makeRerunCommand(): Command {
           const retryConfig = merged.retry
             ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
             : undefined;
+          const providerConfig = extractProviderConfig(merged);
 
           // Load agents to find the target agent
           const agentsDir = join(process.cwd(), 'agents');
@@ -92,6 +93,7 @@ export function makeRerunCommand(): Command {
             model: merged.model,
             retry: retryConfig,
             profiles: merged.profiles,
+            providerConfig,
           });
 
           spinner.succeed(`Done: ${result.displayName} (${result.durationMs}ms)`);

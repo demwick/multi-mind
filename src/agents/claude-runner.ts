@@ -1,20 +1,24 @@
 import { spawn } from 'child_process';
 import os from 'os';
 import { parse as parseYaml } from 'yaml';
-import type { AgentDefinition, AgentResult, RetryConfig, ProfileConfig } from '../types/index.js';
+import type { AgentDefinition, AgentResult, RetryConfig, ProfileConfig, ProviderConfig } from '../types/index.js';
+import { runWithSDK, getDefaultModel } from './sdk-runner.js';
 
 export interface PromptInput {
   systemPrompt: string;
   brief: string;
   previousOutputs: Array<{ agentName: string; output: string }>;
   feedback?: string;
+  includeSystemPrompt?: boolean;
 }
 
 export function buildPrompt(input: PromptInput): string {
-  const { systemPrompt, brief, previousOutputs, feedback } = input;
+  const { systemPrompt, brief, previousOutputs, feedback, includeSystemPrompt = true } = input;
   const parts: string[] = [];
 
-  parts.push(systemPrompt);
+  if (includeSystemPrompt) {
+    parts.push(systemPrompt);
+  }
 
   if (previousOutputs.length > 0) {
     parts.push('\n## Previous Agent Outputs');
@@ -74,10 +78,41 @@ export async function runAgent(
     model?: string;
     retry?: RetryConfig;
     profiles?: ProfileConfig[];
+    providerConfig?: ProviderConfig;
     onVerbose?: (msg: string) => void;
   }
 ): Promise<AgentResult> {
   const start = Date.now();
+
+  if (options?.providerConfig) {
+    const model =
+      options.model ?? agent.model ?? getDefaultModel(options.providerConfig.provider);
+    const userPrompt = buildPrompt({
+      systemPrompt: agent.system_prompt,
+      brief,
+      previousOutputs,
+      includeSystemPrompt: false,
+    });
+    const raw = await runWithSDK({
+      providerConfig: options.providerConfig,
+      model,
+      systemPrompt: agent.system_prompt,
+      prompt: userPrompt,
+      temperature: agent.temperature,
+      retry: options.retry,
+      onVerbose: options.onVerbose,
+    });
+    const { text, structured } = parseClaudeOutput(raw);
+    return {
+      agentName: agent.name,
+      displayName: agent.display_name,
+      output: text,
+      structured,
+      durationMs: Date.now() - start,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   const maxRetries = options?.retry?.maxRetries ?? 2;
   const baseDelayMs = options?.retry?.baseDelayMs ?? 3000;
   const profiles = options?.profiles ?? [];

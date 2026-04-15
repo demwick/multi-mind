@@ -51,6 +51,13 @@ export interface ProfileConfig {
   config_dir: string;
 }
 
+export type AIProvider = 'anthropic' | 'openai' | 'google';
+
+export interface ProviderConfig {
+  provider: AIProvider;
+  api_key: string;
+}
+
 export interface GlobalOptions {
   verbose: boolean;
   outputDir: string;
@@ -58,4 +65,5 @@ export interface GlobalOptions {
   agents?: string[];
   retry?: RetryConfig;
   profiles?: ProfileConfig[];
+  providerConfig?: ProviderConfig;
 }

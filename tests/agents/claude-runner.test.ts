@@ -2,12 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'events';
 import type { ChildProcess } from 'child_process';
 import { buildPrompt, parseClaudeOutput, runAgent } from '../../src/agents/claude-runner.js';
-import type { AgentDefinition } from '../../src/types/index.js';
+import type { AgentDefinition, ProviderConfig } from '../../src/types/index.js';
 
 vi.mock('child_process', () => ({ spawn: vi.fn() }));
+vi.mock('../../src/agents/sdk-runner.js', () => ({
+  runWithSDK: vi.fn(),
+  getDefaultModel: vi.fn(() => 'claude-sonnet-4.6'),
+}));
 
 import { spawn } from 'child_process';
+import { runWithSDK } from '../../src/agents/sdk-runner.js';
 const mockSpawn = vi.mocked(spawn);
+const mockRunWithSDK = vi.mocked(runWithSDK);
 
 function makeChild(opts: {
   exitCode?: number;
@@ -202,5 +208,59 @@ describe('runAgent retry and profile', () => {
 
     const spawnOpts = mockSpawn.mock.calls[0][2] as { env?: NodeJS.ProcessEnv };
     expect(spawnOpts?.env).toBeUndefined();
+  });
+});
+
+describe('runAgent SDK dispatch', () => {
+  const agent: AgentDefinition = {
+    name: 'test-agent',
+    display_name: 'Test Agent',
+    description: 'test',
+    phase: 1,
+    depends_on: [],
+    input_from: [],
+    system_prompt: 'You are a test agent.',
+  };
+
+  const providerConfig: ProviderConfig = { provider: 'anthropic', api_key: 'sk-ant-test' };
+
+  beforeEach(() => {
+    mockSpawn.mockReset();
+    mockRunWithSDK.mockReset();
+    mockRunWithSDK.mockResolvedValue('```yaml\nresult: ok\n```');
+  });
+
+  it('calls runWithSDK and NOT spawn when providerConfig is provided', async () => {
+    await runAgent(agent, 'brief', [], { providerConfig, retry: { maxRetries: 0 } });
+
+    expect(mockRunWithSDK).toHaveBeenCalledTimes(1);
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
+  it('passes systemPrompt and prompt separately to runWithSDK', async () => {
+    await runAgent(agent, 'test brief', [], { providerConfig, retry: { maxRetries: 0 } });
+
+    const call = mockRunWithSDK.mock.calls[0][0];
+    expect(call.systemPrompt).toBe('You are a test agent.');
+    expect(call.prompt).not.toContain('You are a test agent.');
+    expect(call.prompt).toContain('test brief');
+  });
+
+  it('returns AgentResult with parsed output from SDK', async () => {
+    mockRunWithSDK.mockResolvedValue('```yaml\nrecommendation: go\n```');
+
+    const result = await runAgent(agent, 'brief', [], { providerConfig });
+
+    expect(result.agentName).toBe('test-agent');
+    expect(result.structured).toMatchObject({ recommendation: 'go' });
+  });
+
+  it('uses spawn path when no providerConfig', async () => {
+    mockSpawn.mockReturnValue(makeChild({ data: 'plain text response' }));
+
+    await runAgent(agent, 'brief', [], { retry: { maxRetries: 0 } });
+
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    expect(mockRunWithSDK).not.toHaveBeenCalled();
   });
 });

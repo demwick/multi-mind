@@ -7,7 +7,7 @@ import { runPipeline } from '../../orchestrator/pipeline.js';
 import { parseBrief } from '../../context/brief-parser.js';
 import { writeOutput } from '../../output/writer.js';
 import { generateSummary } from '../../output/markdown.js';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, extractProviderConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
 
 export function makeDecideCommand(): Command {
@@ -36,6 +36,7 @@ export function makeDecideCommand(): Command {
           const retryConfig = merged.retry
             ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
             : undefined;
+          const providerConfig = extractProviderConfig(merged);
 
           const agentsDir = join(process.cwd(), 'agents');
           const agents = await loadAgents(agentsDir);
@@ -69,6 +70,7 @@ export function makeDecideCommand(): Command {
             filterAgents: merged.agents,
             retry: retryConfig,
             profiles: merged.profiles,
+            providerConfig,
             callbacks: {
               onAgentStart: (agent) => {
                 spinner.start(`Running: ${agent.display_name}`);

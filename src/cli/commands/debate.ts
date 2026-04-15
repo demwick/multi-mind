@@ -5,7 +5,7 @@ import ora from 'ora';
 import { loadAgents } from '../../agents/loader.js';
 import { runAgent } from '../../agents/claude-runner.js';
 import { parseBrief } from '../../context/brief-parser.js';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, extractProviderConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
 
 export function makeDebateCommand(): Command {
@@ -34,6 +34,7 @@ export function makeDebateCommand(): Command {
           const retryConfig = merged.retry
             ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
             : undefined;
+          const providerConfig = extractProviderConfig(merged);
 
           if (options.agents.length !== 2) {
             spinner.fail('Debate requires exactly 2 agents (use --agents agent1,agent2)');
@@ -69,6 +70,7 @@ export function makeDebateCommand(): Command {
             model: merged.model,
             retry: retryConfig,
             profiles: merged.profiles,
+            providerConfig,
           });
           spinner.succeed(`PRO done: ${proResult.displayName} (${proResult.durationMs}ms)`);
 
@@ -83,7 +85,7 @@ export function makeDebateCommand(): Command {
             conAgentWithPosition,
             topic,
             [{ agentName: proResult.agentName, output: proResult.output }],
-            { model: merged.model, retry: retryConfig, profiles: merged.profiles },
+            { model: merged.model, retry: retryConfig, profiles: merged.profiles, providerConfig },
           );
           spinner.succeed(`CON done: ${conResult.displayName} (${conResult.durationMs}ms)`);
 

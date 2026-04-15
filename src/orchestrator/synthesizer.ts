@@ -1,16 +1,11 @@
 import { spawn } from 'child_process';
-import type { AgentResult } from '../types/index.js';
+import type { AgentResult, ProviderConfig } from '../types/index.js';
+import { runWithSDK, getDefaultModel } from '../agents/sdk-runner.js';
 
-export async function synthesize(
-  brief: string,
-  agentResults: AgentResult[],
-  options?: { model?: string },
-): Promise<string> {
-  const agentSummaries = agentResults
-    .map((r) => `### ${r.displayName}\n${r.output}`)
-    .join('\n\n---\n\n');
+const SYNTHESIZER_SYSTEM_PROMPT = 'You are an experienced technical consultant.';
 
-  const prompt = `You are an experienced technical consultant. Below are analyses from different experts (Product Manager, CTO, Architect, etc.) about a project.
+function buildSynthesizerUserPrompt(brief: string, agentSummaries: string): string {
+  return `Below are analyses from different experts (Product Manager, CTO, Architect, etc.) about a project.
 
 ## Brief
 ${brief}
@@ -30,6 +25,33 @@ Rules:
 - End with a concrete recommendation
 - **LANGUAGE RULE:** Write the summary in the same language as the brief/analyses above
 - Write only the summary text, no titles or markdown formatting`;
+}
+
+export async function synthesize(
+  brief: string,
+  agentResults: AgentResult[],
+  options?: { model?: string; providerConfig?: ProviderConfig },
+): Promise<string> {
+  const agentSummaries = agentResults
+    .map((r) => `### ${r.displayName}\n${r.output}`)
+    .join('\n\n---\n\n');
+
+  const userPrompt = buildSynthesizerUserPrompt(brief, agentSummaries);
+
+  if (options?.providerConfig) {
+    const model =
+      options.model ?? getDefaultModel(options.providerConfig.provider);
+    const result = await runWithSDK({
+      providerConfig: options.providerConfig,
+      model,
+      systemPrompt: SYNTHESIZER_SYSTEM_PROMPT,
+      prompt: userPrompt,
+    });
+    return result.trim();
+  }
+
+  // CLI path: combine system prompt + user prompt into one string
+  const cliPrompt = `${SYNTHESIZER_SYSTEM_PROMPT}\n\n${userPrompt}`;
 
   const args = ['-p', '-', '--output-format', 'text'];
   if (options?.model) {
@@ -71,7 +93,7 @@ Rules:
       reject(new Error(`claude CLI error: ${e.message}`));
     });
 
-    child.stdin.write(prompt);
+    child.stdin.write(cliPrompt);
     child.stdin.end();
   });
 

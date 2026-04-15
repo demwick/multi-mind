@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import os from 'os';
 import { parse } from 'yaml';
+import type { ProviderConfig, AIProvider } from '../types/index.js';
 
 export interface MultiMindConfig {
   model?: string;
@@ -14,6 +15,8 @@ export interface MultiMindConfig {
     base_delay_ms?: number;
   };
   profiles?: Array<{ name: string; config_dir: string }>;
+  provider?: string;
+  api_key?: string;
 }
 
 const CONFIG_FILENAMES = ['.multimindrc.yaml', '.multimindrc.yml'];
@@ -47,4 +50,19 @@ export function loadConfig(startDir?: string): MultiMindConfig {
   }
 
   return {};
+}
+
+const VALID_PROVIDERS: AIProvider[] = ['anthropic', 'openai', 'google'];
+
+export function extractProviderConfig(config: MultiMindConfig): ProviderConfig | undefined {
+  if (!config.api_key || !config.provider) return undefined;
+  if (!(VALID_PROVIDERS as string[]).includes(config.provider)) {
+    throw new Error(
+      `Unknown provider "${config.provider}". Valid providers: ${VALID_PROVIDERS.join(', ')}`
+    );
+  }
+  return {
+    provider: config.provider as AIProvider,
+    api_key: config.api_key,
+  };
 }

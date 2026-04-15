@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentResult, PipelineResult, RetryConfig, ProfileConfig } from '../types/index.js';
+import type { AgentDefinition, AgentResult, PipelineResult, RetryConfig, ProfileConfig, ProviderConfig } from '../types/index.js';
 import { runAgent } from '../agents/claude-runner.js';
 import { runPipeline } from './pipeline.js';
 import type { PipelineCallbacks } from './pipeline.js';
@@ -14,6 +14,7 @@ export interface MultiRoundOptions {
   verbose?: boolean;
   retry?: RetryConfig;
   profiles?: ProfileConfig[];
+  providerConfig?: ProviderConfig;
 }
 
 function buildReviewInstruction(roundNumber: number, previousRoundResults: AgentResult[]): string {
@@ -48,7 +49,7 @@ export async function runMultiRound(
   options: MultiRoundOptions,
 ): Promise<PipelineResult> {
   const totalStart = Date.now();
-  const { rounds, model, callbacks, filterAgents, verbose, retry, profiles } = options;
+  const { rounds, model, callbacks, filterAgents, verbose, retry, profiles, providerConfig } = options;
 
   const allRounds: AgentResult[][] = [];
 
@@ -83,6 +84,7 @@ export async function runMultiRound(
     verbose,
     retry,
     profiles,
+    providerConfig,
     callbacks: {
       onAgentStart: callbacks?.onAgentStart,
       onAgentComplete: callbacks?.onAgentComplete,
@@ -155,6 +157,7 @@ export async function runMultiRound(
               model,
               retry,
               profiles,
+              providerConfig,
               onVerbose: callbacks?.onVerbose,
             });
             callbacks?.onAgentComplete?.(result);

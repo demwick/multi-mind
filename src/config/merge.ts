@@ -12,5 +12,7 @@ export function mergeConfig(
     agents: cliOpts.agents ?? fileConfig.agents,
     retry: cliOpts.retry ?? fileConfig.retry,
     profiles: cliOpts.profiles ?? fileConfig.profiles,
+    provider: fileConfig.provider,
+    api_key: fileConfig.api_key,
   };
 }

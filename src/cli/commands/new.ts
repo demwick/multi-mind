@@ -9,7 +9,7 @@ import { parseBrief } from '../../context/brief-parser.js';
 import { writeOutput } from '../../output/writer.js';
 import { generateSummary } from '../../output/markdown.js';
 import { synthesize } from '../../orchestrator/synthesizer.js';
-import { loadConfig } from '../../config/loader.js';
+import { loadConfig, extractProviderConfig } from '../../config/loader.js';
 import { mergeConfig } from '../../config/merge.js';
 import { collectBrief } from '../interactive.js';
 import { MultiProgress } from '../progress.js';
@@ -115,6 +115,7 @@ export function makeNewCommand(): Command {
         const retryConfig = merged.retry
           ? { maxRetries: merged.retry.max_retries, baseDelayMs: merged.retry.base_delay_ms }
           : undefined;
+        const providerConfig = extractProviderConfig(merged);
 
         let result;
         if (numRounds > 1) {
@@ -125,6 +126,7 @@ export function makeNewCommand(): Command {
             verbose: options.verbose,
             retry: retryConfig,
             profiles: merged.profiles,
+            providerConfig,
             callbacks: {
               ...sharedCallbacks,
               onRoundStart: (round, total) => {
@@ -142,6 +144,7 @@ export function makeNewCommand(): Command {
             verbose: options.verbose,
             retry: retryConfig,
             profiles: merged.profiles,
+            providerConfig,
             callbacks: sharedCallbacks,
           });
         }
@@ -149,7 +152,7 @@ export function makeNewCommand(): Command {
         spinner.start('Synthesizing executive summary...');
         let executiveSummary: string | undefined;
         try {
-          executiveSummary = await synthesize(brief, result.agents, { model: merged.model });
+          executiveSummary = await synthesize(brief, result.agents, { model: merged.model, providerConfig });
           spinner.succeed('Executive summary ready');
         } catch {
           spinner.warn('Could not generate executive summary, continuing...');
